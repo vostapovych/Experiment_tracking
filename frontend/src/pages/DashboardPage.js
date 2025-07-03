@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SYNTHETIC_EXPERIMENTS_DATA } from '../syntheticData';
 
-// Функція для визначення класу кольору - БЕЗ ЗМІН
+// --- Функції визначення кольору та полярності (без змін) ---
 const getRangeColorClass = (metricName, value, min, max, isHigherBetter) => {
   if (typeof value !== 'number' || isNaN(value) || min === undefined || max === undefined || min === null || max === null) {
     return '';
@@ -27,13 +27,26 @@ const getRangeColorClass = (metricName, value, min, max, isHigherBetter) => {
   }
 };
 
-// Допоміжна функція для визначення полярності метрики - БЕЗ ЗМІН
 const isMetricHigherBetter = (metricName) => {
   return metricName.includes('accuracy') ||
          metricName.includes('progress_rate') ||
          metricName.includes('success_rate') ||
          metricName.includes('passed_count');
 };
+// --- Кінець функцій визначення кольору ---
+
+
+const DASHBOARD_METRIC_CONFIG = [
+  { key: 'overall_success_rate', header: 'Overall Success' },
+  { key: 'overall_accuracy_avg', header: 'Accuracy' },
+  { key: 'avg_iterations_check', header: 'Iterations Check' },
+  { key: 'avg_iterations_act', header: 'Iterations Act' },
+  { key: 'avg_progress_rate', header: 'Progress Rate' },
+  { key: 'max_tool_execution_time_ms_avg', header: 'Max Tool Latency Avg (ms)' },
+  { key: 'total_estimated_cost_usd', header: 'Estimated Cost Total (USD)' },
+  { key: 'total_tokens_used', header: 'Total Tokens' }
+];
+
 
 function DashboardPage() {
   const [experiments, setExperiments] = useState([]);
@@ -41,22 +54,17 @@ function DashboardPage() {
   const [sortColumn, setSortColumn] = useState(null);
   const [sortDirection, setSortDirection] = useState('asc');
 
+  // --- ВИПРАВЛЕНО: СТАН ВИДИМИХ КОЛОНОК ІНІЦІАЛІЗУЄТЬСЯ ПРАВИЛЬНО ---
+  // Ініціалізуємо тут, щоб усі були видимі за замовчуванням
+  const [visibleColumns, setVisibleColumns] = useState(DASHBOARD_METRIC_CONFIG.map(m => m.key));
+
   const navigate = useNavigate();
 
   const minMaxRanges = useMemo(() => {
     if (experiments.length === 0) return {};
 
     const ranges = {};
-    const metricKeys = [
-      'overall_success_rate',
-      'overall_accuracy_avg',
-      'avg_iterations_check',
-      'avg_iterations_act',
-      'avg_progress_rate',
-      'max_tool_execution_time_ms_avg',
-      'total_estimated_cost_usd',
-      'total_tokens_used'
-    ];
+    const metricKeys = DASHBOARD_METRIC_CONFIG.map(m => m.key);
 
     metricKeys.forEach(key => {
       const values = experiments
@@ -73,7 +81,6 @@ function DashboardPage() {
     return ranges;
   }, [experiments]);
 
-
   const getRangeColorClassCallback = useCallback((metricName, value) => {
     return getRangeColorClass(metricName, value, minMaxRanges[metricName]?.min, minMaxRanges[metricName]?.max, isMetricHigherBetter(metricName));
   }, [minMaxRanges]);
@@ -83,23 +90,34 @@ function DashboardPage() {
     setExperiments(SYNTHETIC_EXPERIMENTS_DATA);
 
     if (SYNTHETIC_EXPERIMENTS_DATA.length > 0) {
-        // Дефолтно обираємо всі експерименти для порівняння, або нічого, щоб користувач сам обрав
-        setSelectedForComparison([]); // Починаємо без обраних, щоб користувач сам обрав
+        setSelectedForComparison([]);
     }
   }, []);
+
+  const handleColumnSelectionChange = (event) => {
+    const { options } = event.target;
+    const selectedValues = [];
+    for (let i = 0; i < options.length; i++) {
+      if (options[i].selected) {
+        selectedValues.push(options[i].value);
+      }
+    }
+    setVisibleColumns(selectedValues);
+  };
+
 
   const handleCheckboxChange = (runId) => {
     setSelectedForComparison(prevSelected => {
       if (prevSelected.includes(runId)) {
         return prevSelected.filter(id => id !== runId);
       } else {
-        return [...prevSelected, runId]; // ДОЗВОЛЯЄМО ОБРАТИ БІЛЬШЕ, НІЖ 2
+        return [...prevSelected, runId];
       }
     });
   };
 
   const handleCompareClick = () => {
-    if (selectedForComparison.length === 0) { // Перевірка, щоб було хоча б 1 обрано
+    if (selectedForComparison.length === 0) {
       alert("Будь ласка, оберіть хоча б один експеримент для порівняння.");
       return;
     }
@@ -134,23 +152,32 @@ function DashboardPage() {
       if (typeof aValue !== 'number' || isNaN(aValue) || aValue === null) return sortDirection === 'asc' ? 1 : -1;
       if (typeof bValue !== 'number' || isNaN(bValue) || bValue === null) return sortDirection === 'asc' ? -1 : 1;
 
+      const isHigherBetterCol = isMetricHigherBetter(sortColumn);
+
+      let comparison = aValue - bValue;
+      if (!isHigherBetterCol) {
+        comparison = bValue - aValue;
+      }
+
       if (sortDirection === 'asc') {
-        return aValue - bValue;
+        return comparison;
       } else {
-        return bValue - aValue;
+        return -comparison;
       }
     });
   }, [experiments, sortColumn, sortDirection]);
 
-
-  const renderSortableHeader = (columnKey, headerText) => (
-    <th onClick={() => handleSort(columnKey)} style={{ cursor: 'pointer' }}>
-      {headerText}
-      {sortColumn === columnKey && (
-        <span>{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
-      )}
-    </th>
-  );
+  const renderSortableHeader = (columnKey, headerText) => {
+    if (!visibleColumns.includes(columnKey)) return null;
+    return (
+      <th onClick={() => handleSort(columnKey)} style={{ cursor: 'pointer' }}>
+        {headerText}
+        {sortColumn === columnKey && (
+          <span>{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
+        )}
+      </th>
+    );
+  };
 
 
   return (
@@ -158,17 +185,19 @@ function DashboardPage() {
       <h2>All Experiments (Benchmark Level)</h2>
 
       <div className="controls">
+        {/* ВИПРАВЛЕНО: ТЕПЕР SELECT В ОДНОМУ LABEL */}
         <label>
           Columns:
-          <select disabled>
-            <option>accuracy</option>
-            <option>iterations check</option>
-            <option>iterations act</option>
-            <option>progress rate</option>
+          <select multiple value={visibleColumns} onChange={handleColumnSelectionChange} style={{ minHeight: '100px' }}>
+            {DASHBOARD_METRIC_CONFIG.map(metric => (
+              <option key={metric.key} value={metric.key}>
+                {metric.header}
+              </option>
+            ))}
           </select>
         </label>
         <button onClick={handleCompareClick} disabled={selectedForComparison.length === 0}>
-          Compare Selected ({selectedForComparison.length}) {/* Оновили текст кнопки */}
+          Compare Selected ({selectedForComparison.length})
         </button>
       </div>
 
@@ -181,14 +210,9 @@ function DashboardPage() {
               <th>Agent Version</th>
               {renderSortableHeader('timestamp_utc', 'Timestamp (UTC)')}
               <th>Benchmark Suite</th>
-              {renderSortableHeader('overall_success_rate', 'Overall Success')}
-              {renderSortableHeader('overall_accuracy_avg', 'Accuracy')}
-              {renderSortableHeader('avg_iterations_check', 'Iterations Check')}
-              {renderSortableHeader('avg_iterations_act', 'Iterations Act')}
-              {renderSortableHeader('avg_progress_rate', 'Progress Rate')}
-              {renderSortableHeader('max_tool_execution_time_ms_avg', 'Max Tool Latency Avg (ms)')}
-              {renderSortableHeader('total_estimated_cost_usd', 'Estimated Cost Total (USD)')}
-              {renderSortableHeader('total_tokens_used', 'Total Tokens')}
+              {DASHBOARD_METRIC_CONFIG.map(metric => (
+                visibleColumns.includes(metric.key) && renderSortableHeader(metric.key, metric.header)
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -205,14 +229,15 @@ function DashboardPage() {
                 <td>{exp.agent_version}</td>
                 <td>{new Date(exp.timestamp_utc).toLocaleString()}</td>
                 <td>{exp.benchmark_suite_name}</td>
-                <td><span className={getRangeColorClassCallback('overall_success_rate', exp.overall_summary_metrics.overall_success_rate)}>{String((exp.overall_summary_metrics.overall_success_rate * 100).toFixed(0))}%</span></td>
-                <td><span className={getRangeColorClassCallback('overall_accuracy_avg', exp.overall_summary_metrics.overall_accuracy_avg)}>{exp.overall_summary_metrics.overall_accuracy_avg?.toFixed(2)}</span></td>
-                <td><span className={getRangeColorClassCallback('avg_iterations_check', exp.overall_summary_metrics.avg_iterations_check)}>{exp.overall_summary_metrics.avg_iterations_check?.toFixed(0)}</span></td>
-                <td><span className={getRangeColorClassCallback('avg_iterations_act', exp.overall_summary_metrics.avg_iterations_act)}>{exp.overall_summary_metrics.avg_iterations_act?.toFixed(0)}</span></td>
-                <td><span className={getRangeColorClassCallback('avg_progress_rate', exp.overall_summary_metrics.avg_progress_rate)}>{exp.overall_summary_metrics.avg_progress_rate?.toFixed(2)}</span></td>
-                <td><span className={getRangeColorClassCallback('max_tool_execution_time_ms_avg', exp.overall_summary_metrics.max_tool_execution_time_ms_avg)}>{exp.overall_summary_metrics.max_tool_execution_time_ms_avg?.toFixed(0)}</span></td>
-                <td><span className={getRangeColorClassCallback('total_estimated_cost_usd', exp.overall_summary_metrics.total_estimated_cost_usd)}>{exp.overall_summary_metrics.total_estimated_cost_usd?.toFixed(4)}</span></td>
-                <td><span className={getRangeColorClassCallback('total_tokens_used', exp.overall_summary_metrics.total_tokens_used)}>{exp.overall_summary_metrics.total_tokens_used}</span></td>
+                {DASHBOARD_METRIC_CONFIG.map(metric => (
+                  visibleColumns.includes(metric.key) && (
+                    <td key={exp.run_id + '-' + metric.key}>
+                      <span className={getRangeColorClassCallback(metric.key, exp.overall_summary_metrics[metric.key])}>
+                        {typeof exp.overall_summary_metrics[metric.key] === 'number' ? exp.overall_summary_metrics[metric.key]?.toFixed(metric.key.includes('rate') || metric.key.includes('accuracy') ? 2 : 0) : exp.overall_summary_metrics[metric.key] ?? 'N/A'}
+                      </span>
+                    </td>
+                  )
+                ))}
               </tr>
             ))}
           </tbody>

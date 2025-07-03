@@ -1,0 +1,117 @@
+body {
+  font-family: sans-serif;
+  margin: 20px;
+  background-color: #f4f4f4;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+h1, h2 {
+  color: #333;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+}
+
+/* ЗАГАЛЬНІ СТИЛІ ДЛЯ ТАБЛИЦЬ */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 30px;
+  background-color: #fff;
+}
+
+th, td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+  vertical-align: top; /* Вирівнювання вмісту зверху */
+  white-space: nowrap; /* Запобігає переносу тексту в заголовках */
+}
+
+th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+}
+
+tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+
+/* СТИЛІ ДЛЯ ФОРМ ТА КОНТРОЛІВ (SELECT, BUTTON) */
+.controls {
+  margin-bottom: 20px;
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.controls label {
+  font-weight: bold;
+  margin-right: 10px;
+}
+
+.controls select {
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  min-width: 150px;
+}
+
+
+/* СТИЛІ ДЛЯ ГОРИЗОНТАЛЬНОЇ ПРОКРУТКИ ТАБЛИЦІ */
+.table-responsive {
+  overflow-x: auto; /* Дозволяє горизонтальну прокрутку */
+  margin-bottom: 30px;
+}
+
+
+/* --- СТИЛІ ДЛЯ КОЛЬОРОВИХ БОКСІВ МЕТРИК (НАЙВАЖЛИВІШЕ) --- */
+
+/* БАЗОВИЙ СТИЛЬ ДЛЯ ВСІХ БОКСІВ */
+.metric-value-box {
+  display: inline-block; /* Робить елемент блоком всередині рядка */
+  padding: 2px 5px;
+  border-radius: 4px;
+  border: 1px solid; /* Колір бордера буде визначений класом кольору */
+  min-width: 40px; /* Мінімальна ширина для вигляду боксу */
+  text-align: center;
+  box-sizing: border-box; /* Важливо для контролю розмірів */
+  line-height: normal; /* Запобігає надто великим висотам рядків */
+}
+
+/* СТИЛЬ ДЛЯ БАЗОВОГО ЕКСПЕРИМЕНТУ (БІЛИЙ ФОН) */
+.metric-value-box-base {
+  background-color: #ffffff; /* Чисто білий фон */
+  color: #333; /* Темно-сірий текст */
+  border-color: #ddd; /* Нейтральний колір бордера */
+}
+
+/* КОЛЬОРОВІ КЛАСИ ДЛЯ РІЗНИЦЬ */
+.diff-positive {
+  background-color: #e6ffe6; /* Світло-зелений фон */
+  color: #008000; /* Темно-зелений текст */
+  border-color: #008000; /* Темно-зелена рамка */
+}
+
+.diff-negative {
+  background-color: #ffe6e6; /* Світло-червоний фон */
+  color: #cc0000; /* Темно-червоний текст */
+  border-color: #cc0000; /* Темно-червона рамка */
+}
+
+.diff-neutral {
+  background-color: #ffffcc; /* Світло-жовтий фон */
+  color: #555; /* Сірий текст */
+  border-color: #aaaa00; /* Жовта рамка */
+}
+
+/* --- КІНЕЦЬ СТИЛІВ ДЛЯ КОЛЬОРОВИХ БОКСІВ МЕТРИК --- */

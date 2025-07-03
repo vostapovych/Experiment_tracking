@@ -35,26 +35,32 @@ const isMetricHigherBetter = (metricName) => {
 };
 
 const getRelativeColorClass = (metricName, currentValue, baseValue) => {
-  const currentNum = typeof currentValue === 'number' ? currentValue : null;
-  const baseNum = typeof baseValue === 'number' ? baseValue : null;
+  const currentNum = typeof currentValue === 'number' && !isNaN(currentValue) ? currentValue : null;
+  const baseNum = typeof baseValue === 'number' && !isNaN(baseValue) ? baseValue : null;
 
-  if (currentNum === null || baseNum === null || (baseNum === 0 && currentNum === 0)) {
+  if (currentNum === null || baseNum === null) {
+    return 'metric-value-box diff-neutral';
+  }
+
+  if (baseNum === 0 && currentNum === 0) {
     return 'metric-value-box diff-neutral';
   }
 
   if (baseNum === 0 && currentNum !== 0) {
-    return isMetricHigherBetter(metricName) ? 'metric-value-box diff-positive' : 'metric-value-box diff-negative';
+      return isMetricHigherBetter(metricName) ? 'metric-value-box diff-positive' : 'metric-value-box diff-negative';
   }
 
   const diff = currentNum - baseNum;
   const isHigherBetterMetric = isMetricHigherBetter(metricName);
 
+  const EPSILON = 0.0001; // Поріг для порівняння чисел з плаваючою комою
+
   if (isHigherBetterMetric) {
-    if (diff > 0) return 'metric-value-box diff-positive';
-    if (diff < 0) return 'metric-value-box diff-negative';
+    if (diff > EPSILON) return 'metric-value-box diff-positive';
+    if (diff < -EPSILON) return 'metric-value-box diff-negative';
   } else {
-    if (diff < 0) return 'metric-value-box diff-positive';
-    if (diff > 0) return 'metric-value-box diff-negative';
+    if (diff < -EPSILON) return 'metric-value-box diff-positive';
+    if (diff > EPSILON) return 'metric-value-box diff-negative';
   }
   return 'metric-value-box diff-neutral';
 };
@@ -72,9 +78,29 @@ function ComparisonPage() {
 
   const [baseRunId, setBaseRunId] = useState(null);
 
+  // --- ВИПРАВЛЕНО: ОГОЛОШЕННЯ visibleColumns ТУТ ---
+  const [visibleColumns, setVisibleColumns] = useState([]);
+
   const selectedRunIds = location.state?.selectedRunIds || [];
 
-  // --- ВИПРАВЛЕНО: ТЕПЕР ТІЛЬКИ ОДИН useMemo ДЛЯ transformedData ---
+  useEffect(() => {
+    const fetchAndFilterData = () => {
+      const filteredData = SYNTHETIC_EXPERIMENTS_DATA.filter(exp =>
+        selectedRunIds.includes(exp.run_id)
+      );
+      if (filteredData.length === 0 && selectedRunIds.length > 0) {
+        setError("No data found for selected experiments.");
+      }
+      setSelectedRunsData(filteredData);
+      setLoading(false);
+
+      if (filteredData.length > 0 && !baseRunId) {
+          setBaseRunId(filteredData[0].run_id);
+      }
+    };
+    fetchAndFilterData();
+  }, [selectedRunIds, baseRunId]);
+
   const transformedData = useMemo(() => {
     const testsMap = new Map();
 
@@ -99,7 +125,7 @@ function ComparisonPage() {
         });
       });
       testsMap.set(tcId, {
-        testCaseId: tcId, // ТЕПЕР testCaseId ЯВНО ДОДАНО ДО ОБ'ЄКТА ГРУПИ ТЕСТ-КЕЙСІВ
+        testCaseId: tcId,
         testCaseName: testsMap.get(tcId)?.testCaseName || runsForThisTestCase[0]?.testCaseName || tcId,
         runs: runsForThisTestCase
       });
@@ -159,30 +185,27 @@ function ComparisonPage() {
         }
       });
     });
-    return Array.from(metricNamesSet);
-  }, [selectedRunsData]);
+    const names = Array.from(metricNamesSet);
+    // Ініціалізуємо visibleColumns після того, як allMetricNames завантажені
+    if (visibleColumns.length === 0 && names.length > 0) {
+        setVisibleColumns(names); // Встановлюємо всі метрики видимими за замовчуванням
+    }
+    return names;
+  }, [selectedRunsData, visibleColumns]);
 
 
-  useEffect(() => {
-    const fetchAndFilterData = () => {
-      const filteredData = SYNTHETIC_EXPERIMENTS_DATA.filter(exp =>
-        selectedRunIds.includes(exp.run_id)
-      );
-      if (filteredData.length === 0 && selectedRunIds.length > 0) {
-        setError("No data found for selected experiments.");
+  const handleColumnSelectionChange = (event) => {
+    const { options } = event.target;
+    const selectedValues = [];
+    for (let i = 0; i < options.length; i++) {
+      if (options[i].selected) {
+        selectedValues.push(options[i].value);
       }
-      setSelectedRunsData(filteredData);
-      setLoading(false);
-
-      if (filteredData.length > 0 && !baseRunId) {
-          setBaseRunId(filteredData[0].run_id);
-      }
-    };
-    fetchAndFilterData();
-  }, [selectedRunIds, baseRunId]);
+    }
+    setVisibleColumns(selectedValues);
+  };
 
 
-  // --- Рендеринг ---
   if (loading) return <p>Loading comparison data...</p>;
   if (error) return <p style={{ color: 'red' }}>Error loading comparison: {error}</p>;
   if (selectedRunIds.length === 0) return <p>No experiments selected for comparison. Please go back to the <a href="/">Dashboard</a>.</p>;
@@ -196,7 +219,6 @@ function ComparisonPage() {
       <h2>Detailed Comparison by Test Case</h2>
       <p>Selected Experiments: <strong>{selectedRunIds.join(', ')}</strong></p>
 
-      {/* Випадаючий список для вибору базового запуску */}
       <div className="controls" style={{ marginBottom: '20px' }}>
         <label>
           Base Experiment:
@@ -208,29 +230,29 @@ function ComparisonPage() {
             ))}
           </select>
         </label>
+
+        <label style={{ marginLeft: '20px' }}>
+          Columns:
+          <select multiple value={visibleColumns} onChange={handleColumnSelectionChange} style={{ minHeight: '80px' }}>
+            {allMetricNames.map(metricName => (
+              <option key={metricName} value={metricName}>
+                {metricName.replace(/_/g, ' ').replace('avg', 'Avg').trim()}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {transformedData.map(testCaseGroup => {
         const runsInThisTestCase = testCaseGroup.runs;
         const sortedRunsForDisplay = sortRunsInTestCase(runsInThisTestCase);
 
-        // --- ВИПРАВЛЕНО: Правильний пошук результату тест-кейсу для базового рану ---
-        // Використовуємо testCaseGroup.testCaseId для пошуку, оскільки ми додали його у transformedData
         const baseRunTestCaseResultForThisTC = baseRun.test_results.find(tc => tc.test_case_id === testCaseGroup.testCaseId);
         const baseMetricsForThisTC = baseRunTestCaseResultForThisTC?.metrics || {};
 
         return (
           <div key={testCaseGroup.testCaseId} className="test-case-group" style={{ marginBottom: '40px', border: '1px solid #eee', padding: '20px', borderRadius: '8px' }}>
             <h3>Test Case: {testCaseGroup.testCaseName}</h3>
-
-            <div className="controls" style={{ marginBottom: '15px' }}>
-              <label>
-                Columns:
-                <select disabled>
-                  {allMetricNames.map(name => <option key={name}>{name.replace(/_/g, ' ').trim()}</option>)}
-                </select>
-              </label>
-            </div>
 
             <div className="table-responsive">
               <table style={{ width: 'auto', minWidth: '100%', tableLayout: 'fixed' }}>
@@ -239,9 +261,13 @@ function ComparisonPage() {
                     <th style={{ width: '150px' }}>Run / Agent</th>
                     <th style={{ width: '80px' }}>Status</th>
                     {allMetricNames.map(metricName => (
-                      <th key={metricName} style={{ width: '100px' }}>
-                        {metricName.replace(/_/g, ' ').replace('avg', 'Avg').trim()}
-                      </th>
+                      visibleColumns.includes(metricName) && (
+                        <th key={metricName} style={{ width: '120px' }}>
+                          <a onClick={() => handleSort(metricName)} style={{ cursor: 'pointer', textDecoration: 'none', color: 'inherit' }}>
+                            {metricName.replace(/_/g, ' ').replace('avg', 'Avg').trim()} {sortColumn === metricName && (sortDirection === 'asc' ? '▲' : '▼')}
+                          </a>
+                        </th>
+                      )
                     ))}
                   </tr>
                 </thead>
@@ -251,17 +277,19 @@ function ComparisonPage() {
                       <td>{run.run_id} ({run.agent_version})</td>
                       <td>{run.status}</td>
                       {allMetricNames.map(metricName => (
-                        <td key={`${run.run_id}-${metricName}`}>
-                          {run.run_id === baseRunId ? (
-                            <span className="metric-value-box metric-value-box-base">
-                                {typeof run.metrics[metricName] === 'number' ? run.metrics[metricName]?.toFixed(2) : run.metrics[metricName] ?? 'N/A'}
-                            </span>
-                          ) : (
-                            <span className={getRelativeColorClass(metricName, run.metrics[metricName], baseMetricsForThisTC[metricName])}>
-                                {typeof run.metrics[metricName] === 'number' ? run.metrics[metricName]?.toFixed(2) : run.metrics[metricName] ?? 'N/A'}
-                            </span>
-                          )}
-                        </td>
+                        visibleColumns.includes(metricName) && (
+                          <td key={`${run.run_id}-${metricName}`}>
+                            {run.run_id === baseRunId ? (
+                              <span className="metric-value-box metric-value-box-base">
+                                  {typeof run.metrics[metricName] === 'number' ? run.metrics[metricName]?.toFixed(2) : run.metrics[metricName] ?? 'N/A'}
+                              </span>
+                            ) : (
+                              <span className={getRelativeColorClass(metricName, run.metrics[metricName], baseMetricsForThisTC[metricName])}>
+                                  {typeof run.metrics[metricName] === 'number' ? run.metrics[metricName]?.toFixed(2) : run.metrics[metricName] ?? 'N/A'}
+                              </span>
+                            )}
+                          </td>
+                        )
                       ))}
                     </tr>
                   ))}
