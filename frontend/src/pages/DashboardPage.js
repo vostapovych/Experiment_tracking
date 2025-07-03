@@ -170,7 +170,7 @@ function DashboardPage() {
   const renderSortableHeader = (columnKey, headerText) => {
     if (!visibleColumns.includes(columnKey)) return null;
     return (
-      <th onClick={() => handleSort(columnKey)} style={{ cursor: 'pointer' }}>
+      <th onClick={() => handleSort(columnKey)} style={{ cursor: 'pointer', width : '150px' }}>
         {headerText}
         {sortColumn === columnKey && (
           <span>{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
