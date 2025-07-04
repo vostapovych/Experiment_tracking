@@ -54,8 +54,6 @@ function DashboardPage() {
   const [sortColumn, setSortColumn] = useState(null);
   const [sortDirection, setSortDirection] = useState('asc');
 
-  // --- ВИПРАВЛЕНО: СТАН ВИДИМИХ КОЛОНОК ІНІЦІАЛІЗУЄТЬСЯ ПРАВИЛЬНО ---
-  // Ініціалізуємо тут, щоб усі були видимі за замовчуванням
   const [visibleColumns, setVisibleColumns] = useState(DASHBOARD_METRIC_CONFIG.map(m => m.key));
 
   const navigate = useNavigate();
@@ -167,10 +165,10 @@ function DashboardPage() {
     });
   }, [experiments, sortColumn, sortDirection]);
 
-  const renderSortableHeader = (columnKey, headerText) => {
-    if (!visibleColumns.includes(columnKey)) return null;
+  // renderSortableHeader тепер використовується тільки для метрик
+  const renderSortableHeader = (columnKey, headerText, defaultWidth_px = 150) => { // Прибрали width_px з параметрів
     return (
-      <th onClick={() => handleSort(columnKey)} style={{ cursor: 'pointer', width : '150px' }}>
+      <th onClick={() => handleSort(columnKey)} style={{ cursor: 'pointer', width: `${defaultWidth_px}px` }}> {/* Використовуємо defaultWidth_px */}
         {headerText}
         {sortColumn === columnKey && (
           <span>{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
@@ -185,7 +183,6 @@ function DashboardPage() {
       <h2>All Experiments (Benchmark Level)</h2>
 
       <div className="controls">
-        {/* ВИПРАВЛЕНО: ТЕПЕР SELECT В ОДНОМУ LABEL */}
         <label>
           Columns:
           <select multiple value={visibleColumns} onChange={handleColumnSelectionChange} style={{ minHeight: '100px' }}>
@@ -202,16 +199,20 @@ function DashboardPage() {
       </div>
 
       <div className="table-responsive">
-        <table>
+        {/* minWidth на таблиці залишаємо для гарантії прокрутки */}
+        <table style={{ minWidth: '1500px' }}>
           <thead>
             <tr>
-              <th>Select</th>
-              <th>Run ID</th>
-              <th>Agent Version</th>
-              {renderSortableHeader('timestamp_utc', 'Timestamp (UTC)')}
-              <th>Benchmark Suite</th>
+              <th style={{ width: '60px' }}>Select</th>
+              <th style={{ width: '180px' }}>Run ID</th>
+              <th style={{ width: '180px' }}>Agent Version</th>
+              <th onClick={() => handleSort('timestamp_utc')} style={{ cursor: 'pointer', width: '180px' }}> {/* ЗАЛИШАЄМО ФІКСОВАНІ КОЛОНКИ ТУТ */}
+                Timestamp (UTC) {sortColumn === 'timestamp_utc' && (<span>{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>)}
+              </th>
+              <th style={{ width: '250px' }}>Benchmark Suite</th>
+              {/* ТЕПЕР ФІЛЬТРУЄМО ТІЛЬКИ МЕТРИКИ, ЩОБ ВОНИ БУЛИ ОПЦІОНАЛЬНИМИ */}
               {DASHBOARD_METRIC_CONFIG.map(metric => (
-                visibleColumns.includes(metric.key) && renderSortableHeader(metric.key, metric.header)
+                visibleColumns.includes(metric.key) && renderSortableHeader(metric.key, metric.header, 150) // Передаємо 150px для метрик
               ))}
             </tr>
           </thead>
